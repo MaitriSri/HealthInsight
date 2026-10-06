@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <meta
+    name="description"
+    content="HealthInsight - Medical Test Interpretation & Health Report Management System"
+  />
+
+  <title>HealthInsight | Health Report Intelligence</title>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <!-- =========================
+         SIDEBAR
+    ========================== -->
+
+    <aside class="sidebar">
+
+      <div class="brand">
+
+        <div class="brand-icon">
+          <span>✚</span>
+        </div>
+
+        <div>
+          <h1>HealthInsight</h1>
+          <p>Health Intelligence</p>
+        </div>
+
+      </div>
+
+
+      <nav class="navigation">
+
+        <button
+          class="nav-item active"
+          data-section="dashboard"
+        >
+          <span class="nav-icon">⌂</span>
+          Dashboard
+        </button>
+
+        <button
+          class="nav-item"
+          data-section="new-report"
+        >
+          <span class="nav-icon">＋</span>
+          New Report
+        </button>
+
+        <button
+          class="nav-item"
+          data-section="history"
+        >
+          <span class="nav-icon">◷</span>
+          Report History
+        </button>
+
+        <button
+          class="nav-item"
+          data-section="trends"
+        >
+          <span class="nav-icon">⌁</span>
+          Health Trends
+        </button>
+
+      </nav>
+
+
+      <div class="sidebar-bottom">
+
+        <div class="privacy-card">
+
+          <div class="privacy-icon">
+            🔒
+          </div>
+
+          <div>
+            <strong>Private by design</strong>
+            <p>Your demo records stay in this browser.</p>
+          </div>
+
+        </div>
+
+        <div class="system-status">
+          <span class="status-dot"></span>
+          System Ready
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN
+    ========================== -->
+
+    <main class="main-content">
+
+      <!-- TOP BAR -->
+
+      <header class="topbar">
+
+        <div class="mobile-brand">
+          <div class="brand-icon">✚</div>
+          <strong>HealthInsight</strong>
+        </div>
+
+        <div class="topbar-right">
+
+          <div class="date-display" id="currentDate">
+            Today
+          </div>
+
+          <div class="avatar">
+            ST
+          </div>
+
+        </div>
+
+      </header>
+
+
+      <!-- =========================
+           DASHBOARD
+      ========================== -->
+
+      <section
+        class="page-section active"
+        id="dashboard"
+      >
+
+        <div class="hero">
+
+          <div>
+
+            <span class="eyebrow">
+              MEDICAL REPORT INTELLIGENCE
+            </span>
+
+            <h2>
+              Understand your health data
+              <span>with clarity.</span>
+            </h2>
+
+            <p>
+              Enter laboratory values, compare them with reference
+              ranges, and receive simple explanations without
+              replacing professional medical advice.
+            </p>
+
+            <button
+              class="primary-button"
+              id="startReportButton"
+            >
+              Analyze a New Report
+              <span>→</span>
+            </button>
+
+          </div>
+
+          <div class="hero-visual">
+
+            <div class="orb orb-one"></div>
+            <div class="orb orb-two"></div>
+
+            <div class="health-card">
+
+              <div class="mini-card-top">
+                <span>Health Analysis</span>
+                <span class="pulse">●</span>
+              </div>
+
+              <div class="health-score">
+                <div class="score-ring">
+                  <strong id="dashboardNormalPercent">0%</strong>
+                  <span>within range</span>
+                </div>
+              </div>
+
+              <div class="mini-bars">
+
+                <div>
+                  <span>Normal</span>
+                  <div class="bar">
+                    <i id="normalBar"></i>
+                  </div>
+                </div>
+
+                <div>
+                  <span>Attention</span>
+                  <div class="bar">
+                    <i id="attentionBar"></i>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- STAT CARDS -->
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+
+            <div class="stat-icon blue">
+              ◉
+            </div>
+
+            <div>
+              <span>Total Reports</span>
+              <strong id="totalReports">
+                0
+              </strong>
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-icon green">
+              ✓
+            </div>
+
+            <div>
+              <span>Normal Results</span>
+              <strong id="normalResults">
+                0
+              </strong>
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-icon orange">
+              !
+            </div>
+
+            <div>
+              <span>Need Attention</span>
+              <strong id="attentionResults">
+                0
+              </strong>
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-icon purple">
+              ↗
+            </div>
+
+            <div>
+              <span>Tests Analyzed</span>
+              <strong id="testsAnalyzed">
+                0
+              </strong>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- QUICK ACTIONS -->
+
+        <div class="section-heading">
+
+          <div>
+            <span class="eyebrow">
+              GET STARTED
+            </span>
+
+            <h3>What would you like to do?</h3>
+          </div>
+
+        </div>
+
+
+        <div class="quick-actions">
+
+          <button
+            class="action-card"
+            data-go="new-report"
+          >
+
+            <div class="action-icon blue-bg">
+              ＋
+            </div>
+
+            <div>
+              <strong>Analyze Test Results</strong>
+
+              <p>
+                Enter patient and laboratory values
+                for interpretation.
+              </p>
+            </div>
+
+            <span>→</span>
+
+          </button>
+
+
+          <button
+            class="action-card"
+            data-go="history"
+          >
+
+            <div class="action-icon purple-bg">
+              ◷
+            </div>
+
+            <div>
+              <strong>View Report History</strong>
+
+              <p>
+                Review previously stored health reports.
+              </p>
+            </div>
+
+            <span>→</span>
+
+          </button>
+
+
+          <button
+            class="action-card"
+            data-go="trends"
+          >
+
+            <div class="action-icon green-bg">
+              ↗
+            </div>
+
+            <div>
+              <strong>Explore Health Trends</strong>
+
+              <p>
+                Visualize how your results change over time.
+              </p>
+            </div>
+
+            <span>→</span>
+
+          </button>
+
+        </div>
+
+
+        <div class="medical-note">
+
+          <span class="note-icon">ⓘ</span>
+
+          <div>
+
+            <strong>Important</strong>
+
+            <p>
+              HealthInsight explains laboratory results in
+              understandable language. It does not diagnose
+              diseases or replace professional medical advice.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- =========================
+           NEW REPORT
+      ========================== -->
+
+      <section
+        class="page-section"
+        id="new-report"
+      >
+
+        <div class="page-header">
+
+          <div>
+            <span class="eyebrow">
+              DATA INPUT MODULE
+            </span>
+
+            <h2>Create Health Report</h2>
+
+            <p>
+              Enter patient details and available laboratory
+              test values.
+            </p>
+          </div>
+
+          <div class="step-indicator">
+            <span class="step active">1</span>
+            <span class="line"></span>
+            <span class="step active">2</span>
+            <span class="line"></span>
+            <span class="step">3</span>
+          </div>
+
+        </div>
+
+
+        <!-- PATIENT INFORMATION -->
+
+        <div class="form-card">
+
+          <div class="card-title">
+
+            <div class="title-icon">
+              ♙
+            </div>
+
+            <div>
+              <h3>Patient Information</h3>
+              <p>Basic information for this report</p>
+            </div>
+
+          </div>
+
+
+          <div class="form-grid">
+
+            <div class="input-group">
+
+              <label for="patientName">
+                Patient Name
+              </label>
+
+              <input
+                id="patientName"
+                type="text"
+                placeholder="Enter patient name"
+              />
+
+            </div>
+
+
+            <div class="input-group">
+
+              <label for="patientAge">
+                Age
+              </label>
+
+              <input
+                id="patientAge"
+                type="number"
+                min="1"
+                max="120"
+                placeholder="e.g. 21"
+              />
+
+            </div>
+
+
+            <div class="input-group">
+
+              <label for="patientGender">
+                Gender
+              </label>
+
+              <select id="patientGender">
+
+                <option value="">
+                  Select gender
+                </option>
+
+                <option value="Female">
+                  Female
+                </option>
+
+                <option value="Male">
+                  Male
+                </option>
+
+                <option value="Other">
+                  Other
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="input-group">
+
+              <label for="reportDate">
+                Report Date
+              </label>
+
+              <input
+                id="reportDate"
+                type="date"
+              />
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- TEST INPUT -->
+
+        <div class="form-card">
+
+          <div class="card-title">
+
+            <div class="title-icon">
+              ◉
+            </div>
+
+            <div>
+
+              <h3>Laboratory Test Values</h3>
+
+              <p>
+                Enter values available on the laboratory report
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="test-selector">
+
+            <div class="input-group">
+
+              <label for="testSelect">
+                Select Test
+              </label>
+
+              <select id="testSelect">
+
+                <option value="">
+                  Choose a test
+                </option>
+
+                <option value="hemoglobin">
+                  Hemoglobin
+                </option>
+
+                <option value="glucose">
+                  Blood Glucose
+                </option>
+
+                <option value="cholesterol">
+                  Total Cholesterol
+                </option>
+
+                <option value="triglycerides">
+                  Triglycerides
+                </option>
+
+                <option value="wbc">
+                  White Blood Cell Count
+                </option>
+
+                <option value="platelets">
+                  Platelet Count
+                </option>
+
+                <option value="creatinine">
+                  Creatinine
+                </option>
+
+                <option value="vitaminD">
+                  Vitamin D
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="input-group">
+
+              <label for="testValue">
+                Test Value
+              </label>
+
+              <input
+                id="testValue"
+                type="number"
+                step="0.01"
+                placeholder="Enter value"
+              />
+
+            </div>
+
+
+            <button
+              class="secondary-button add-test-button"
+              id="addTestButton"
+            >
+              + Add Test
+            </button>
+
+          </div>
+
+
+          <div
+            class="selected-tests"
+            id="selectedTests"
+          >
+
+            <div class="empty-tests">
+
+              <div>◌</div>
+
+              <p>
+                No tests added yet.
+              </p>
+
+              <span>
+                Select a test above to begin.
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- FORM ACTIONS -->
+
+        <div class="form-actions">
+
+          <button
+            class="ghost-button"
+            id="clearReportButton"
+          >
+            Clear
+          </button>
+
+          <button
+            class="primary-button"
+            id="analyzeButton"
+          >
+            Analyze Report
+            <span>→</span>
+          </button>
+
+        </div>
+
+
+        <div
+          class="validation-message"
+          id="validationMessage"
+        ></div>
+
+      </section>
+
+
+      <!-- =========================
+           RESULTS
+      ========================== -->
+
+      <section
+        class="page-section"
+        id="results"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              INTERPRETATION ENGINE
+            </span>
+
+            <h2>Report Analysis</h2>
+
+            <p id="resultPatientText">
+              Analysis results
+            </p>
+
+          </div>
+
+          <button
+            class="secondary-button"
+            id="newAnalysisButton"
+          >
+            + New Analysis
+          </button>
+
+        </div>
+
+
+        <!-- SUMMARY -->
+
+        <div class="result-summary">
+
+          <div class="summary-main">
+
+            <span class="eyebrow">
+              OVERALL REPORT
+            </span>
+
+            <h3 id="overallStatus">
+              Analysis Complete
+            </h3>
+
+            <p id="overallDescription">
+              Your laboratory values have been compared
+              with their reference ranges.
+            </p>
+
+          </div>
+
+
+          <div class="summary-numbers">
+
+            <div>
+              <strong id="resultNormalCount">
+                0
+              </strong>
+
+              <span>Normal</span>
+            </div>
+
+            <div>
+              <strong id="resultLowCount">
+                0
+              </strong>
+
+              <span>Low</span>
+            </div>
+
+            <div>
+              <strong id="resultHighCount">
+                0
+              </strong>
+
+              <span>High</span>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- RESULT CARDS -->
+
+        <div
+          class="results-list"
+          id="resultsList"
+        ></div>
+
+
+        <!-- CHART -->
+
+        <div class="chart-card">
+
+          <div class="card-title">
+
+            <div class="title-icon">
+              ◒
+            </div>
+
+            <div>
+
+              <h3>Reference Range Visualization</h3>
+
+              <p>
+                Your values compared with expected ranges
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div
+            class="chart-container"
+            id="resultChart"
+          ></div>
+
+        </div>
+
+
+        <div class="result-disclaimer">
+
+          <span>ⓘ</span>
+
+          <p>
+            These interpretations are educational and based
+            on the reference ranges used by this prototype.
+            They are not a medical diagnosis. Reference ranges
+            can vary by laboratory, age, sex, clinical condition,
+            and other factors.
+          </p>
+
+        </div>
+
+
+        <div class="form-actions">
+
+          <button
+            class="secondary-button"
+            id="saveReportButton"
+          >
+            Save Report
+          </button>
+
+          <button
+            class="primary-button"
+            id="viewHistoryButton"
+          >
+            View History →
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- =========================
+           HISTORY
+      ========================== -->
+
+      <section
+        class="page-section"
+        id="history"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              DATA STORAGE
+            </span>
+
+            <h2>Report History</h2>
+
+            <p>
+              Review previously stored laboratory reports.
+            </p>
+
+          </div>
+
+          <button
+            class="primary-button"
+            id="historyNewButton"
+          >
+            + New Report
+          </button>
+
+        </div>
+
+
+        <div
+          class="history-list"
+          id="historyList"
+        ></div>
+
+      </section>
+
+
+      <!-- =========================
+           TRENDS
+      ========================== -->
+
+      <section
+        class="page-section"
+        id="trends"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              VISUALIZATION MODULE
+            </span>
+
+            <h2>Health Trends</h2>
+
+            <p>
+              Explore stored results over time.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="trend-controls">
+
+          <div class="input-group">
+
+            <label for="trendTest">
+              Test
+            </label>
+
+            <select id="trendTest">
+
+              <option value="">
+                Select a test
+              </option>
+
+            </select>
+
+          </div>
+
+        </div>
+
+
+        <div class="trend-card">
+
+          <div
+            id="trendChart"
+            class="trend-chart"
+          ></div>
+
+        </div>
+
+
+        <div
+          class="trend-empty"
+          id="trendEmpty"
+        >
+          Save multiple reports containing the same test
+          to see a trend over time.
+        </div>
+
+      </section>
+
+
+      <!-- FOOTER -->
+
+      <footer>
+
+        <div>
+          <strong>HealthInsight</strong>
+          <span>
+            Medical Test Interpretation & Health Report Management System
+          </span>
+        </div>
+
+        <span>
+          Frontend Prototype
+        </span>
+
+      </footer>
+
+    </main>
+
+  </div>
+
+
+  <div
+    class="toast"
+    id="toast"
+  ></div>
+
+
+  <script type="module" src="/src/main.js"></script>
+
+</body>
+</html>

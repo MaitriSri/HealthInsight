@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HealthInsight | X-Ray Review</title>
+
+    <link rel="stylesheet" href="/src/xray.css">
+</head>
+
+<body>
+
+    <div class="page">
+
+        <!-- HEADER -->
+
+        <header class="topbar">
+
+            <div class="brand">
+                <div class="brand-symbol">H</div>
+
+                <div>
+                    <h1>HealthInsight</h1>
+                    <span>Medical Report Management</span>
+                </div>
+            </div>
+
+            <a href="/" class="back-button">
+                ← Back to dashboard
+            </a>
+
+        </header>
+
+
+        <!-- MAIN -->
+
+        <main>
+
+            <section class="intro">
+
+                <div>
+                    <span class="section-label">IMAGING</span>
+
+                    <h2>
+                        X-Ray
+                        <span>Review</span>
+                    </h2>
+
+                    <p>
+                        Upload a chest X-ray image to preview it and prepare
+                        it for analysis.
+                    </p>
+                </div>
+
+            </section>
+
+
+            <section class="workspace">
+
+                <!-- LEFT SIDE -->
+
+                <div class="upload-column">
+
+                    <div class="card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <span class="number">01</span>
+
+                                <div>
+                                    <h3>Upload X-Ray</h3>
+                                    <p>
+                                        Select an image from your device.
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                        <label
+                            for="xrayInput"
+                            class="upload-area"
+                            id="uploadArea"
+                        >
+
+                            <input
+                                type="file"
+                                id="xrayInput"
+                                accept="image/png,image/jpeg,image/jpg"
+                            >
+
+                            <div class="upload-icon">
+                                +
+                            </div>
+
+                            <h4>
+                                Choose an X-ray image
+                            </h4>
+
+                            <p>
+                                PNG or JPG · Maximum 10 MB
+                            </p>
+
+                            <span class="browse">
+                                Browse files
+                            </span>
+
+                        </label>
+
+
+                        <div
+                            class="file-info"
+                            id="fileInfo"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- PATIENT INFORMATION -->
+
+                    <div class="card patient-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <span class="number">02</span>
+
+                                <div>
+                                    <h3>Patient information</h3>
+
+                                    <p>
+                                        Optional information for organizing
+                                        the scan.
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                        <div class="fields">
+
+                            <label>
+                                Patient name
+
+                                <input
+                                    type="text"
+                                    id="patientName"
+                                    placeholder="Enter name"
+                                >
+                            </label>
+
+
+                            <label>
+                                Scan date
+
+                                <input
+                                    type="date"
+                                    id="scanDate"
+                                >
+                            </label>
+
+
+                            <label>
+                                Body region
+
+                                <select id="bodyRegion">
+
+                                    <option value="">
+                                        Select region
+                                    </option>
+
+                                    <option>
+                                        Chest
+                                    </option>
+
+                                    <option>
+                                        Spine
+                                    </option>
+
+                                    <option>
+                                        Arm
+                                    </option>
+
+                                    <option>
+                                        Leg
+                                    </option>
+
+                                    <option>
+                                        Other
+                                    </option>
+
+                                </select>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- RIGHT SIDE -->
+
+                <div class="preview-column">
+
+                    <div class="card preview-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <span class="number">03</span>
+
+                                <div>
+                                    <h3>Image preview</h3>
+
+                                    <p>
+                                        Your uploaded image appears here.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <span
+                                class="status"
+                                id="status"
+                            >
+                                Waiting
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            class="image-container"
+                            id="imageContainer"
+                        >
+
+                            <div class="empty-preview">
+
+                                <div class="image-placeholder">
+                                    X
+                                </div>
+
+                                <h4>
+                                    No image selected
+                                </h4>
+
+                                <p>
+                                    Upload an X-ray to see the preview.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="preview-actions">
+
+                            <button
+                                class="secondary-button"
+                                id="removeButton"
+                                disabled
+                            >
+                                Remove image
+                            </button>
+
+                            <button
+                                class="primary-button"
+                                id="analyzeButton"
+                                disabled
+                            >
+                                Continue to analysis →
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- INFORMATION -->
+
+            <section class="notice">
+
+                <div class="notice-mark">
+                    i
+                </div>
+
+                <div>
+
+                    <strong>
+                        About X-Ray review
+                    </strong>
+
+                    <p>
+                        This page currently provides image upload and
+                        preview functionality. A clinically validated
+                        imaging model can be connected later through the
+                        Flask backend.
+                    </p>
+
+                </div>
+
+            </section>
+
+        </main>
+
+
+        <footer>
+
+            <span>
+                HealthInsight
+            </span>
+
+            <span>
+                Medical information support tool
+            </span>
+
+        </footer>
+
+    </div>
+
+
+    <script type="module" src="/src/xray.js"></script>
+
+</body>
+</html>
