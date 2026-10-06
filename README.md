@@ -112,13 +112,12 @@ Uses historical test values to identify trends, changes, and relationships betwe
 
 ## Team Members
 
-| Name | Roll Number | Contribution |
+| Name | Registration Number | Contribution |
 |---|---|---|
 | Sanskriti Tyagi | 25BHI10124 | Frontend Development |
 | Kavya Trivedi | 25BHI10099 | Flask Backend, Routes and API Connections, README/Documentation |
 | Harshjyot Rakhra | 25BHI10114 | SQLite Database |
-| Maitri Srivastava | 25BHI10037 | Interpretation Engine |
-| Maitri Srivastava | 25BHI10037 | Integration, GitHub and Testing |
+| Maitri Srivastava | 25BHI10037 | Interpretation Engine, Integration, GitHub and Testing |
 | Tejashri Bhandari | 25BHI10113 | PPT Modification and Project Report |
 
 ## Guided By
