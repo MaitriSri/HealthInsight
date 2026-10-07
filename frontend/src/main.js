@@ -185,12 +185,46 @@ async function syncWithBackend() {
   updateTrendTestOptions();
 }
 
+function getUniquePatients(list = storedPatients) {
+  const map = new Map();
+  for (const p of list) {
+    const key = (p.name || "").trim().toLowerCase();
+    if (!key) continue;
+    if (!map.has(key)) {
+      map.set(key, {
+        id: p.id,
+        name: (p.name || "").trim(),
+        age: p.age,
+        gender: p.gender,
+      });
+    } else {
+      const existing = map.get(key);
+      if (!existing.id && p.id) existing.id = p.id;
+      if (
+        (existing.age === undefined ||
+          existing.age === null ||
+          existing.age === 0) &&
+        p.age
+      ) {
+        existing.age = p.age;
+      }
+      if (
+        (!existing.gender || existing.gender === "Unspecified") &&
+        p.gender
+      ) {
+        existing.gender = p.gender;
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 async function loadPatients() {
   try {
     const res = await fetch(`${API_BASE}/patients`);
     if (res.ok) {
       const data = await res.json();
-      storedPatients = data.patients || [];
+      storedPatients = getUniquePatients(data.patients || []);
       updatePatientDropdowns();
       return;
     }
@@ -205,14 +239,31 @@ function deriveLocalPatients() {
   const pMap = new Map();
   for (const rep of reports) {
     if (rep.patient && rep.patient.name) {
-      const pId = rep.patient.id || rep.patient.name;
-      if (!pMap.has(String(pId))) {
-        pMap.set(String(pId), {
+      const normKey = rep.patient.name.trim().toLowerCase();
+      if (!pMap.has(normKey)) {
+        pMap.set(normKey, {
           id: rep.patient.id,
-          name: rep.patient.name,
+          name: rep.patient.name.trim(),
           age: rep.patient.age,
           gender: rep.patient.gender,
         });
+      } else {
+        const existing = pMap.get(normKey);
+        if (!existing.id && rep.patient.id) existing.id = rep.patient.id;
+        if (
+          (existing.age === undefined ||
+            existing.age === null ||
+            existing.age === 0) &&
+          rep.patient.age
+        ) {
+          existing.age = rep.patient.age;
+        }
+        if (
+          (!existing.gender || existing.gender === "Unspecified") &&
+          rep.patient.gender
+        ) {
+          existing.gender = rep.patient.gender;
+        }
       }
     }
   }
@@ -221,6 +272,8 @@ function deriveLocalPatients() {
 }
 
 function updatePatientDropdowns() {
+  storedPatients = getUniquePatients(storedPatients);
+
   // 1. New Report Patient Selector
   const patientSelect = $("#patientSelect");
   if (patientSelect) {
@@ -433,6 +486,8 @@ function setupButtons() {
 
   $("#patientSelect")?.addEventListener("change", onPatientSelectChange);
 
+  $("#patientName")?.addEventListener("input", onPatientNameInput);
+
   $("#addTestButton")?.addEventListener("click", addTest);
 
   $("#analyzeButton")?.addEventListener("click", analyzeReport);
@@ -492,6 +547,48 @@ function onPatientSelectChange() {
       $("#patientName").value = patient.name || "";
       $("#patientAge").value = patient.age || "";
       $("#patientGender").value = patient.gender || "";
+    }
+  }
+}
+
+function onPatientNameInput() {
+  const nameInput = $("#patientName");
+  if (!nameInput) return;
+  const typed = nameInput.value.trim().toLowerCase();
+  if (!typed) {
+    selectedPatientId = null;
+    const select = $("#patientSelect");
+    if (select && select.value !== "new") select.value = "new";
+    return;
+  }
+
+  const matched = storedPatients.find(
+    (p) => (p.name || "").trim().toLowerCase() === typed
+  );
+
+  if (matched) {
+    selectedPatientId = matched.id;
+    const select = $("#patientSelect");
+    if (select && String(select.value) !== String(matched.id)) {
+      select.value = String(matched.id);
+    }
+    const ageInput = $("#patientAge");
+    const genderSelect = $("#patientGender");
+    if (
+      ageInput &&
+      (!ageInput.value || Number(ageInput.value) === 0) &&
+      matched.age
+    ) {
+      ageInput.value = matched.age;
+    }
+    if (genderSelect && !genderSelect.value && matched.gender) {
+      genderSelect.value = matched.gender;
+    }
+  } else {
+    selectedPatientId = null;
+    const select = $("#patientSelect");
+    if (select && select.value !== "new") {
+      select.value = "new";
     }
   }
 }
@@ -683,6 +780,16 @@ async function analyzeReport() {
   if (analyzeBtn) {
     analyzeBtn.disabled = true;
     analyzeBtn.textContent = "Analyzing Report with Backend Engine...";
+  }
+
+  // Ensure selectedPatientId is linked if patient name matches existing patient
+  if (!selectedPatientId && patientName) {
+    const matched = storedPatients.find(
+      (p) => (p.name || "").trim().toLowerCase() === patientName.toLowerCase()
+    );
+    if (matched) {
+      selectedPatientId = matched.id;
+    }
   }
 
   const payload = {
@@ -1137,10 +1244,24 @@ async function deleteReport(id) {
 function updateDashboard() {
   const selectedPatient = $("#dashboardPatientSelect")?.value || "all";
 
+  // Find target patient's normalized name for resilient matching across dates
+  const matchedSelectedPatient =
+    selectedPatient !== "all"
+      ? storedPatients.find((p) => String(p.id) === String(selectedPatient))
+      : null;
+  const targetPatientName = matchedSelectedPatient
+    ? (matchedSelectedPatient.name || "").trim().toLowerCase()
+    : null;
+
   // Filter reports according to selected patient scope
   const userFilteredReports = reports.filter((rep) => {
     if (selectedPatient === "all") return true;
-    return String(rep.patient?.id) === String(selectedPatient);
+    const repId = String(rep.patient?.id || "");
+    const repName = (rep.patient?.name || "").trim().toLowerCase();
+    return (
+      repId === String(selectedPatient) ||
+      (targetPatientName && repName === targetPatientName)
+    );
   });
 
   // Collect the top 2 latest reports per patient for the health percentage calculation
@@ -1153,14 +1274,16 @@ function updateDashboard() {
     );
     latestReportsForHealthScore = sorted.slice(0, 2);
   } else {
-    // All patients: for EACH unique user, extract their 2 most recent reports
+    // All patients: for EACH unique user (by normalized name or id), extract their 2 most recent reports
     const patientReportsMap = new Map();
     for (const rep of reports) {
-      const pid = rep.patient?.id || rep.patient?.name || "unknown";
-      if (!patientReportsMap.has(String(pid))) {
-        patientReportsMap.set(String(pid), []);
+      const pid = (rep.patient?.name || rep.patient?.id || "unknown")
+        .trim()
+        .toLowerCase();
+      if (!patientReportsMap.has(pid)) {
+        patientReportsMap.set(pid, []);
       }
-      patientReportsMap.get(String(pid)).push(rep);
+      patientReportsMap.get(pid).push(rep);
     }
 
     patientReportsMap.forEach((patientReports) => {
@@ -1263,10 +1386,23 @@ function updateTrendTestOptions() {
   const selectedPatient = $("#trendPatient")?.value || "all";
   const previousSelection = select.value;
 
+  const matchedSelectedPatient =
+    selectedPatient !== "all"
+      ? storedPatients.find((p) => String(p.id) === String(selectedPatient))
+      : null;
+  const targetPatientName = matchedSelectedPatient
+    ? (matchedSelectedPatient.name || "").trim().toLowerCase()
+    : null;
+
   // Filter reports by selected patient if not "all"
   const relevantReports = reports.filter((rep) => {
     if (selectedPatient === "all") return true;
-    return String(rep.patient?.id) === String(selectedPatient);
+    const repId = String(rep.patient?.id || "");
+    const repName = (rep.patient?.name || "").trim().toLowerCase();
+    return (
+      repId === String(selectedPatient) ||
+      (targetPatientName && repName === targetPatientName)
+    );
   });
 
   // Deduplicate test keys case-insensitively
@@ -1322,11 +1458,24 @@ function renderTrendChart() {
     return;
   }
 
+  const matchedSelectedPatient =
+    selectedPatient !== "all"
+      ? storedPatients.find((p) => String(p.id) === String(selectedPatient))
+      : null;
+  const targetPatientName = matchedSelectedPatient
+    ? (matchedSelectedPatient.name || "").trim().toLowerCase()
+    : null;
+
   const normKey = key.toLowerCase();
   const points = reports
     .filter((rep) => {
       if (selectedPatient === "all") return true;
-      return String(rep.patient?.id) === String(selectedPatient);
+      const repId = String(rep.patient?.id || "");
+      const repName = (rep.patient?.name || "").trim().toLowerCase();
+      return (
+        repId === String(selectedPatient) ||
+        (targetPatientName && repName === targetPatientName)
+      );
     })
     .flatMap((report) =>
       (report.tests || [])

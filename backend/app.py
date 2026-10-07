@@ -71,6 +71,70 @@ def init_db():
     conn.commit()
     conn.close()
 
+    # Consolidate any duplicate patient records created earlier
+    merge_duplicate_patients()
+
+
+def merge_duplicate_patients():
+    """Consolidate duplicate patient records sharing the same normalized name."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT LOWER(TRIM(full_name)) as norm_name, COUNT(*) as cnt
+            FROM Patients
+            GROUP BY LOWER(TRIM(full_name))
+            HAVING cnt > 1
+        """)
+        duplicates = cursor.fetchall()
+
+        for dup in duplicates:
+            norm_name = dup["norm_name"]
+            cursor.execute("""
+                SELECT patient_id, full_name, age, gender
+                FROM Patients
+                WHERE LOWER(TRIM(full_name)) = ?
+                ORDER BY patient_id ASC
+            """, (norm_name,))
+            rows = cursor.fetchall()
+            if not rows or len(rows) < 2:
+                continue
+
+            primary = rows[0]
+            primary_id = primary["patient_id"]
+            best_age = primary["age"]
+            best_gender = primary["gender"]
+
+            for other in rows[1:]:
+                other_id = other["patient_id"]
+                if (best_age is None or best_age == 0) and other["age"]:
+                    best_age = other["age"]
+                if (not best_gender or best_gender == "Not specified") and other["gender"]:
+                    best_gender = other["gender"]
+
+                cursor.execute(
+                    "UPDATE LabResults SET patient_id = ? WHERE patient_id = ?",
+                    (primary_id, other_id),
+                )
+                cursor.execute(
+                    "UPDATE MedicalScans SET patient_id = ? WHERE patient_id = ?",
+                    (primary_id, other_id),
+                )
+                cursor.execute(
+                    "DELETE FROM Patients WHERE patient_id = ?",
+                    (other_id,),
+                )
+
+            cursor.execute(
+                "UPDATE Patients SET age = ?, gender = ? WHERE patient_id = ?",
+                (best_age, best_gender, primary_id),
+            )
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Duplicate patient migration notice: {e}")
+
 
 init_db()
 
@@ -141,13 +205,17 @@ def list_patients():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT p.patient_id, p.full_name, p.age, p.gender, p.created_at,
+            SELECT MIN(p.patient_id) AS patient_id,
+                   p.full_name,
+                   MAX(p.age) AS age,
+                   MAX(p.gender) AS gender,
+                   MIN(p.created_at) AS created_at,
                    COUNT(DISTINCT l.test_date) AS report_count,
                    COUNT(l.result_id) AS test_count
             FROM Patients p
             LEFT JOIN LabResults l ON p.patient_id = l.patient_id
-            GROUP BY p.patient_id
-            ORDER BY p.patient_id DESC
+            GROUP BY LOWER(TRIM(p.full_name))
+            ORDER BY MIN(p.patient_id) DESC
         """)
         rows = cursor.fetchall()
         conn.close()
@@ -380,11 +448,25 @@ def save_report():
                 if row:
                     patient_db_id = row["patient_id"]
                     cursor.execute(
-                        "UPDATE Patients SET full_name = ?, age = ?, gender = ? WHERE patient_id = ?",
+                        "UPDATE Patients SET full_name = ?, age = COALESCE(?, age), gender = COALESCE(?, gender) WHERE patient_id = ?",
                         (patient_name, patient_age, patient_gender, patient_db_id),
                     )
             except (ValueError, TypeError):
                 pass
+
+        # If not matched by ID, look up by normalized patient name so same user gets one entity
+        if not patient_db_id and patient_name:
+            cursor.execute(
+                "SELECT patient_id FROM Patients WHERE LOWER(TRIM(full_name)) = LOWER(TRIM(?)) ORDER BY patient_id ASC LIMIT 1",
+                (patient_name,),
+            )
+            row = cursor.fetchone()
+            if row:
+                patient_db_id = row["patient_id"]
+                cursor.execute(
+                    "UPDATE Patients SET full_name = ?, age = COALESCE(?, age), gender = COALESCE(?, gender) WHERE patient_id = ?",
+                    (patient_name, patient_age, patient_gender, patient_db_id),
+                )
 
         if not patient_db_id:
             cursor.execute(
@@ -405,6 +487,15 @@ def save_report():
             t_high = float(test.get("high", 0)) if test.get("high") is not None else None
             t_status = (test.get("status") or "NORMAL").upper()
             t_explanation = test.get("explanation", "")
+
+            # Clear any existing value for this specific test on the same date for this patient
+            cursor.execute(
+                """
+                DELETE FROM LabResults
+                WHERE patient_id = ? AND test_date = ? AND LOWER(TRIM(test_name)) = LOWER(TRIM(?))
+                """,
+                (patient_db_id, report_date, t_name),
+            )
 
             cursor.execute(
                 """
