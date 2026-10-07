@@ -473,6 +473,14 @@
 
           </div>
 
+          <div class="input-group" style="margin-bottom: 18px;">
+            <label for="patientSelect">
+              Select Patient
+            </label>
+            <select id="patientSelect">
+              <option value="new">+ Create New Patient</option>
+            </select>
+          </div>
 
           <div class="form-grid">
 
@@ -945,19 +953,40 @@
 
         <div class="trend-controls">
 
-          <div class="input-group">
+          <div class="trend-controls-grid">
 
-            <label for="trendTest">
-              Test
-            </label>
+            <div class="input-group">
 
-            <select id="trendTest">
+              <label for="trendPatient">
+                Select Patient
+              </label>
 
-              <option value="">
-                Select a test
-              </option>
+              <select id="trendPatient">
 
-            </select>
+                <option value="all">
+                  All Patients
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="input-group">
+
+              <label for="trendTest">
+                Select Test
+              </label>
+
+              <select id="trendTest">
+
+                <option value="">
+                  Select a test
+                </option>
+
+              </select>
+
+            </div>
 
           </div>
 

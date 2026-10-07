@@ -2604,7 +2604,29 @@ h3 {
 
   padding: 18px;
 
-  max-width: 420px;
+  max-width: 650px;
+
+}
+
+
+.trend-controls-grid {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 16px;
+
+}
+
+
+@media (max-width: 600px) {
+
+  .trend-controls-grid {
+
+    grid-template-columns: 1fr;
+
+  }
 
 }
 

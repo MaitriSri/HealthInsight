@@ -134,6 +134,44 @@ def get_standard_tests():
     })
 
 
+@app.route("/api/patients", methods=["GET"])
+def list_patients():
+    """Retrieve distinct stored patients with their report counts."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.patient_id, p.full_name, p.age, p.gender, p.created_at,
+                   COUNT(DISTINCT l.test_date) AS report_count,
+                   COUNT(l.result_id) AS test_count
+            FROM Patients p
+            LEFT JOIN LabResults l ON p.patient_id = l.patient_id
+            GROUP BY p.patient_id
+            ORDER BY p.patient_id DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        patients = [
+            {
+                "id": r["patient_id"],
+                "name": r["full_name"],
+                "age": r["age"],
+                "gender": r["gender"],
+                "created_at": r["created_at"],
+                "report_count": r["report_count"],
+                "test_count": r["test_count"],
+            }
+            for r in rows
+        ]
+        return jsonify({
+            "status": "success",
+            "patients": patients,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve patients: {str(e)}"}), 500
+
+
 # -------------------------------------------------------------
 # Interpretation Engine Endpoints
 # -------------------------------------------------------------
@@ -241,7 +279,8 @@ def list_reports():
             group_key = f"{r['patient_id']}_{r['test_date']}"
             if group_key not in reports_map:
                 reports_map[group_key] = {
-                    "id": str(r["patient_id"]),
+                    "id": group_key,
+                    "patient_id": r["patient_id"],
                     "patient": {
                         "id": r["patient_id"],
                         "name": r["full_name"],
@@ -290,7 +329,7 @@ def list_reports():
 
 @app.route("/api/reports", methods=["POST"])
 def save_report():
-    """Save an analyzed report to SQLite database (Patients and LabResults)."""
+    """Save an analyzed report to SQLite database (reusing existing patient or creating new)."""
     data = request.get_json(silent=True) or {}
     patient = data.get("patient") or {}
     patient_name = (patient.get("name") or data.get("patient_name", "")).strip()
@@ -330,15 +369,32 @@ def save_report():
         conn = get_db()
         cursor = conn.cursor()
 
-        # Insert new patient entry
-        cursor.execute(
-            """
-            INSERT INTO Patients (full_name, age, gender)
-            VALUES (?, ?, ?)
-            """,
-            (patient_name, patient_age, patient_gender),
-        )
-        patient_id = cursor.lastrowid
+        # Check if an existing patient was selected
+        patient_db_id = None
+        req_patient_id = patient.get("id") or data.get("patient_id")
+        if req_patient_id:
+            try:
+                pid = int(req_patient_id)
+                cursor.execute("SELECT patient_id FROM Patients WHERE patient_id = ?", (pid,))
+                row = cursor.fetchone()
+                if row:
+                    patient_db_id = row["patient_id"]
+                    cursor.execute(
+                        "UPDATE Patients SET full_name = ?, age = ?, gender = ? WHERE patient_id = ?",
+                        (patient_name, patient_age, patient_gender, patient_db_id),
+                    )
+            except (ValueError, TypeError):
+                pass
+
+        if not patient_db_id:
+            cursor.execute(
+                """
+                INSERT INTO Patients (full_name, age, gender)
+                VALUES (?, ?, ?)
+                """,
+                (patient_name, patient_age, patient_gender),
+            )
+            patient_db_id = cursor.lastrowid
 
         # Insert laboratory results
         for test in tests:
@@ -357,7 +413,7 @@ def save_report():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    patient_id,
+                    patient_db_id,
                     t_name,
                     t_val,
                     t_unit,
@@ -373,9 +429,10 @@ def save_report():
         conn.close()
 
         saved_report = {
-            "id": str(patient_id),
+            "id": f"{patient_db_id}_{report_date}",
+            "patient_id": patient_db_id,
             "patient": {
-                "id": patient_id,
+                "id": patient_db_id,
                 "name": patient_name,
                 "age": patient_age,
                 "gender": patient_gender,
@@ -395,15 +452,32 @@ def save_report():
         return jsonify({"error": f"Failed to save report: {str(e)}"}), 500
 
 
-@app.route("/api/reports/<patient_id>", methods=["DELETE"])
-def delete_report(patient_id):
-    """Delete a patient and their laboratory results by patient_id."""
+@app.route("/api/reports/<report_id>", methods=["DELETE"])
+def delete_report(report_id):
+    """Delete a report. Supports either composite ID 'patientId_testDate' or legacy 'patientId'."""
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM LabResults WHERE patient_id = ?", (patient_id,))
-        cursor.execute("DELETE FROM Patients WHERE patient_id = ?", (patient_id,))
-        affected = cursor.rowcount
+
+        if "_" in str(report_id):
+            p_id, t_date = str(report_id).split("_", 1)
+            cursor.execute(
+                "DELETE FROM LabResults WHERE patient_id = ? AND test_date = ?",
+                (p_id, t_date),
+            )
+            affected = cursor.rowcount
+            # Clean up patient if they have no other lab results or scans
+            cursor.execute("SELECT COUNT(*) FROM LabResults WHERE patient_id = ?", (p_id,))
+            remaining_labs = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM MedicalScans WHERE patient_id = ?", (p_id,))
+            remaining_scans = cursor.fetchone()[0]
+            if remaining_labs == 0 and remaining_scans == 0:
+                cursor.execute("DELETE FROM Patients WHERE patient_id = ?", (p_id,))
+        else:
+            cursor.execute("DELETE FROM LabResults WHERE patient_id = ?", (report_id,))
+            cursor.execute("DELETE FROM Patients WHERE patient_id = ?", (report_id,))
+            affected = cursor.rowcount
+
         conn.commit()
         conn.close()
 

@@ -115,6 +115,8 @@ let TESTS = {
 let currentTests = [];
 let currentAnalysis = null;
 let reports = [];
+let storedPatients = [];
+let selectedPatientId = null;
 
 /* =========================================================
    DOM HELPERS
@@ -162,6 +164,7 @@ async function syncWithBackend() {
         console.warn("Using default tests dictionary.", err);
       }
 
+      await loadPatients();
       await loadReportsFromBackend();
       return;
     }
@@ -174,9 +177,102 @@ async function syncWithBackend() {
     statusEl.innerHTML = `<span class="status-dot" style="background:#e99528;"></span> Backend Offline (Port 5000)`;
   }
   reports = loadLocalReports();
+  deriveLocalPatients();
   updateDashboard();
   renderHistory();
+  updatePatientDropdowns();
   updateTrendTestOptions();
+}
+
+async function loadPatients() {
+  try {
+    const res = await fetch(`${API_BASE}/patients`);
+    if (res.ok) {
+      const data = await res.json();
+      storedPatients = data.patients || [];
+      updatePatientDropdowns();
+      return;
+    }
+  } catch (err) {
+    console.warn("Could not load patients from backend, deriving from reports:", err);
+  }
+
+  deriveLocalPatients();
+}
+
+function deriveLocalPatients() {
+  const pMap = new Map();
+  for (const rep of reports) {
+    if (rep.patient && rep.patient.name) {
+      const pId = rep.patient.id || rep.patient.name;
+      if (!pMap.has(String(pId))) {
+        pMap.set(String(pId), {
+          id: rep.patient.id,
+          name: rep.patient.name,
+          age: rep.patient.age,
+          gender: rep.patient.gender,
+        });
+      }
+    }
+  }
+  storedPatients = Array.from(pMap.values());
+  updatePatientDropdowns();
+}
+
+function updatePatientDropdowns() {
+  // 1. New Report Patient Selector
+  const patientSelect = $("#patientSelect");
+  if (patientSelect) {
+    const currentVal = patientSelect.value;
+    patientSelect.innerHTML = `
+      <option value="new">+ Create New Patient</option>
+      ${storedPatients
+        .map(
+          (p) => `
+            <option value="${p.id}">
+              ${escapeHtml(p.name)} (${p.age ? p.age + " yrs, " : ""}${p.gender || "Unspecified"})
+            </option>
+          `
+        )
+        .join("")}
+    `;
+    if (
+      currentVal &&
+      (currentVal === "new" ||
+        storedPatients.some((p) => String(p.id) === String(currentVal)))
+    ) {
+      patientSelect.value = currentVal;
+    } else {
+      patientSelect.value = "new";
+    }
+  }
+
+  // 2. Health Trends Patient Selector
+  const trendPatient = $("#trendPatient");
+  if (trendPatient) {
+    const currentTrendVal = trendPatient.value;
+    trendPatient.innerHTML = `
+      <option value="all">All Patients</option>
+      ${storedPatients
+        .map(
+          (p) => `
+            <option value="${p.id}">
+              ${escapeHtml(p.name)} (${p.age ? p.age + " yrs" : ""})
+            </option>
+          `
+        )
+        .join("")}
+    `;
+    if (
+      currentTrendVal &&
+      (currentTrendVal === "all" ||
+        storedPatients.some((p) => String(p.id) === String(currentTrendVal)))
+    ) {
+      trendPatient.value = currentTrendVal;
+    } else {
+      trendPatient.value = "all";
+    }
+  }
 }
 
 async function loadReportsFromBackend() {
@@ -188,6 +284,7 @@ async function loadReportsFromBackend() {
       saveLocalReports(reports); // cache locally
       updateDashboard();
       renderHistory();
+      updatePatientDropdowns();
       updateTrendTestOptions();
       return;
     }
@@ -198,6 +295,7 @@ async function loadReportsFromBackend() {
   reports = loadLocalReports();
   updateDashboard();
   renderHistory();
+  updatePatientDropdowns();
   updateTrendTestOptions();
 }
 
@@ -271,18 +369,23 @@ function navigateTo(sectionId) {
     behavior: "smooth",
   });
 
+  if (sectionId === "new-report") {
+    updatePatientDropdowns();
+  }
+
   if (sectionId === "history") {
     renderHistory();
   }
 
   if (sectionId === "trends") {
+    updatePatientDropdowns();
     updateTrendTestOptions();
     renderTrendChart();
   }
 }
 
 /* =========================================================
-   BUTTONS
+   BUTTONS & EVENT LISTENERS
 ========================================================= */
 
 function setupButtons() {
@@ -290,6 +393,8 @@ function setupButtons() {
     clearReportForm();
     navigateTo("new-report");
   });
+
+  $("#patientSelect")?.addEventListener("change", onPatientSelectChange);
 
   $("#addTestButton")?.addEventListener("click", addTest);
 
@@ -313,7 +418,36 @@ function setupButtons() {
     navigateTo("new-report");
   });
 
+  $("#trendPatient")?.addEventListener("change", onTrendPatientChange);
+
   $("#trendTest")?.addEventListener("change", renderTrendChart);
+}
+
+function onPatientSelectChange() {
+  const select = $("#patientSelect");
+  if (!select) return;
+
+  const val = select.value;
+  if (val === "new") {
+    selectedPatientId = null;
+    $("#patientName").value = "";
+    $("#patientAge").value = "";
+    $("#patientGender").value = "";
+    $("#patientName").focus();
+  } else {
+    const patient = storedPatients.find((p) => String(p.id) === String(val));
+    if (patient) {
+      selectedPatientId = patient.id;
+      $("#patientName").value = patient.name || "";
+      $("#patientAge").value = patient.age || "";
+      $("#patientGender").value = patient.gender || "";
+    }
+  }
+}
+
+function onTrendPatientChange() {
+  updateTrendTestOptions();
+  renderTrendChart();
 }
 
 /* =========================================================
@@ -502,6 +636,7 @@ async function analyzeReport() {
 
   const payload = {
     patient: {
+      id: selectedPatientId,
       name: patientName,
       age: Number(age),
       gender,
@@ -524,6 +659,9 @@ async function analyzeReport() {
 
     const data = await res.json();
     currentAnalysis = data.report;
+    if (selectedPatientId && currentAnalysis.patient) {
+      currentAnalysis.patient.id = selectedPatientId;
+    }
 
     renderResults();
     navigateTo("results");
@@ -781,12 +919,16 @@ async function saveCurrentReport() {
     }
 
     await loadReportsFromBackend();
+    await loadPatients();
     updateDashboard();
     renderHistory();
+    updatePatientDropdowns();
     updateTrendTestOptions();
 
     // Reset draft state so subsequent reports start fresh
     currentTests = [];
+    selectedPatientId = null;
+    if ($("#patientSelect")) $("#patientSelect").value = "new";
     if ($("#testSelect")) $("#testSelect").value = "";
     if ($("#testValue")) $("#testValue").value = "";
     renderSelectedTests();
@@ -923,8 +1065,10 @@ async function deleteReport(id) {
     }
 
     await loadReportsFromBackend();
+    await loadPatients();
     renderHistory();
     updateDashboard();
+    updatePatientDropdowns();
     updateTrendTestOptions();
     renderTrendChart();
 
@@ -981,10 +1125,18 @@ function updateTrendTestOptions() {
   const select = $("#trendTest");
   if (!select) return;
 
+  const selectedPatient = $("#trendPatient")?.value || "all";
   const previousSelection = select.value;
+
+  // Filter reports by selected patient if not "all"
+  const relevantReports = reports.filter((rep) => {
+    if (selectedPatient === "all") return true;
+    return String(rep.patient?.id) === String(selectedPatient);
+  });
+
   // Deduplicate test keys case-insensitively
   const testMap = new Map();
-  for (const report of reports) {
+  for (const report of relevantReports) {
     for (const test of report.tests || []) {
       const rawKey = (test.key || test.test_name || test.name || "").trim();
       const normKey = rawKey.toLowerCase();
@@ -1016,6 +1168,8 @@ function updateTrendTestOptions() {
     select.value = previousSelection.toLowerCase();
   } else if (availableTests.length > 0) {
     select.value = availableTests[0].key;
+  } else {
+    select.value = "";
   }
 }
 
@@ -1025,6 +1179,7 @@ function renderTrendChart() {
   if (!chart || !empty) return;
 
   const key = $("#trendTest").value;
+  const selectedPatient = $("#trendPatient")?.value || "all";
 
   if (!key) {
     chart.innerHTML = "";
@@ -1034,6 +1189,10 @@ function renderTrendChart() {
 
   const normKey = key.toLowerCase();
   const points = reports
+    .filter((rep) => {
+      if (selectedPatient === "all") return true;
+      return String(rep.patient?.id) === String(selectedPatient);
+    })
     .flatMap((report) =>
       (report.tests || [])
         .filter((test) => {
@@ -1098,6 +1257,8 @@ function renderTrendChart() {
 ========================================================= */
 
 function clearReportForm() {
+  selectedPatientId = null;
+  if ($("#patientSelect")) $("#patientSelect").value = "new";
   $("#patientName").value = "";
   $("#patientAge").value = "";
   $("#patientGender").value = "";
