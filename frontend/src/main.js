@@ -1264,17 +1264,35 @@ function updateDashboard() {
     );
   });
 
-  // Collect the top 2 latest reports per patient for the health percentage calculation
-  let latestReportsForHealthScore = [];
+  // Collect the latest up to 2 readings of EACH INDIVIDUAL test category
+  let latestTests = [];
 
   if (selectedPatient !== "all") {
-    // Specific patient: take their 2 most recent reports
-    const sorted = [...userFilteredReports].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
-    latestReportsForHealthScore = sorted.slice(0, 2);
+    // Specific patient: group all their tests across all dates by test category
+    const testsByCategory = new Map();
+    for (const rep of userFilteredReports) {
+      for (const t of rep.tests || []) {
+        const catKey = (t.key || t.test_name || t.name || "").trim().toLowerCase();
+        if (!catKey) continue;
+        if (!testsByCategory.has(catKey)) {
+          testsByCategory.set(catKey, []);
+        }
+        testsByCategory.get(catKey).push({
+          ...t,
+          date: rep.date,
+        });
+      }
+    }
+
+    // For each performed test category, take top 2 latest readings (sorted by date DESC)
+    testsByCategory.forEach((catTests) => {
+      const sorted = [...catTests].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+      latestTests.push(...sorted.slice(0, 2));
+    });
   } else {
-    // All patients: for EACH unique user (by normalized name or id), extract their 2 most recent reports
+    // All patients: for EACH unique user, group tests by category and take top 2 latest per category
     const patientReportsMap = new Map();
     for (const rep of reports) {
       const pid = (rep.patient?.name || rep.patient?.id || "unknown")
@@ -1287,15 +1305,29 @@ function updateDashboard() {
     }
 
     patientReportsMap.forEach((patientReports) => {
-      const sorted = [...patientReports].sort(
-        (a, b) => new Date(b.date) - new Date(a.date)
-      );
-      latestReportsForHealthScore.push(...sorted.slice(0, 2));
+      const testsByCategory = new Map();
+      for (const rep of patientReports) {
+        for (const t of rep.tests || []) {
+          const catKey = (t.key || t.test_name || t.name || "").trim().toLowerCase();
+          if (!catKey) continue;
+          if (!testsByCategory.has(catKey)) {
+            testsByCategory.set(catKey, []);
+          }
+          testsByCategory.get(catKey).push({
+            ...t,
+            date: rep.date,
+          });
+        }
+      }
+
+      testsByCategory.forEach((catTests) => {
+        const sorted = [...catTests].sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+        latestTests.push(...sorted.slice(0, 2));
+      });
     });
   }
-
-  // All tests (hemoglobin, glucose, cholesterol, etc.) together from the latest reports
-  const latestTests = latestReportsForHealthScore.flatMap((r) => r.tests || []);
 
   const normalLatest = latestTests.filter(
     (test) => (test.status || "").toUpperCase() === "NORMAL"
@@ -1329,10 +1361,9 @@ function updateDashboard() {
   const basisEl = $("#healthAnalysisBasis");
   if (basisEl) {
     if (selectedPatient === "all") {
-      basisEl.textContent = "Latest 2 Reports per Patient";
+      basisEl.textContent = "Top 2 per Test Category (All Patients)";
     } else {
-      const count = latestReportsForHealthScore.length;
-      basisEl.textContent = `Latest ${count} Report${count === 1 ? "" : "s"}`;
+      basisEl.textContent = "Top 2 per Test Category";
     }
   }
 
@@ -1358,20 +1389,43 @@ function updateDashboard() {
   if (attentionResultsEl) attentionResultsEl.textContent = attentionLatest;
   if (testsAnalyzedEl) testsAnalyzedEl.textContent = totalLatestTests;
 
-  // Percentage and progress bars
+  // Percentage, label, and progress bars
   const normalPercentEl = $("#dashboardNormalPercent");
+  const scoreLabelEl = $("#dashboardScoreLabel");
   const normalBarEl = $("#normalBar");
   const attentionBarEl = $("#attentionBar");
 
   if (normalPercentEl) normalPercentEl.textContent = `${normalPercentage}%`;
+
+  if (scoreLabelEl) {
+    if (totalLatestTests === 0) {
+      scoreLabelEl.textContent = "no tests yet";
+    } else if (attentionLatest === 0) {
+      scoreLabelEl.textContent = "within range";
+    } else {
+      scoreLabelEl.textContent = `${attentionLatest} need attention`;
+    }
+  }
+
   if (normalBarEl) normalBarEl.style.width = `${normalPercentage}%`;
-  if (attentionBarEl) attentionBarEl.style.width = `${100 - normalPercentage}%`;
+  if (attentionBarEl) {
+    const attentionPercent = totalLatestTests
+      ? Math.round((attentionLatest / totalLatestTests) * 100)
+      : 0;
+    attentionBarEl.style.width = `${attentionPercent}%`;
+  }
 
   // Dynamically update the score ring conic gradient to match the normal percentage
   const ringEl = $(".score-ring");
   if (ringEl) {
-    const deg = Math.round((normalPercentage / 100) * 360);
-    ringEl.style.background = `radial-gradient(circle at center, white 55%, transparent 56%), conic-gradient(var(--blue) 0deg, #8c7cf0 ${deg}deg, #e8edf6 ${deg}deg)`;
+    if (totalLatestTests === 0) {
+      ringEl.style.background = `radial-gradient(circle at center, white 55%, transparent 56%), conic-gradient(#e8edf6 0deg 360deg)`;
+    } else if (attentionLatest === 0) {
+      ringEl.style.background = `radial-gradient(circle at center, white 55%, transparent 56%), conic-gradient(var(--blue) 0deg, #8c7cf0 360deg, #e8edf6 360deg)`;
+    } else {
+      const deg = Math.round((normalPercentage / 100) * 360);
+      ringEl.style.background = `radial-gradient(circle at center, white 55%, transparent 56%), conic-gradient(var(--blue) 0deg, #8c7cf0 ${deg}deg, #e99528 ${deg}deg 360deg)`;
+    }
   }
 }
 

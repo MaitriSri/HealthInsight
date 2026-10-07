@@ -1090,19 +1090,16 @@ h3 {
 
 
 .bar i {
-
   display: block;
-
   height: 100%;
-
   width: 0;
-
   background: var(--blue);
-
   border-radius: inherit;
-
   transition: 0.8s ease;
+}
 
+#attentionBar {
+  background: var(--orange);
 }
 
 
