@@ -117,6 +117,7 @@ let currentAnalysis = null;
 let reports = [];
 let storedPatients = [];
 let selectedPatientId = null;
+let currentTrendView = "graph";
 
 /* =========================================================
    DOM HELPERS
@@ -457,6 +458,20 @@ function setupButtons() {
   $("#trendPatient")?.addEventListener("change", onTrendPatientChange);
 
   $("#trendTest")?.addEventListener("change", renderTrendChart);
+
+  $("#viewGraphBtn")?.addEventListener("click", () => {
+    currentTrendView = "graph";
+    $("#viewGraphBtn")?.classList.add("active");
+    $("#viewLinearBtn")?.classList.remove("active");
+    renderTrendChart();
+  });
+
+  $("#viewLinearBtn")?.addEventListener("click", () => {
+    currentTrendView = "linear";
+    $("#viewLinearBtn")?.classList.add("active");
+    $("#viewGraphBtn")?.classList.remove("active");
+    renderTrendChart();
+  });
 }
 
 function onPatientSelectChange() {
@@ -1122,11 +1137,55 @@ async function deleteReport(id) {
 function updateDashboard() {
   const selectedPatient = $("#dashboardPatientSelect")?.value || "all";
 
-  // Filter reports according to selected patient
-  const filteredReports = reports.filter((rep) => {
+  // Filter reports according to selected patient scope
+  const userFilteredReports = reports.filter((rep) => {
     if (selectedPatient === "all") return true;
     return String(rep.patient?.id) === String(selectedPatient);
   });
+
+  // Collect the top 2 latest reports per patient for the health percentage calculation
+  let latestReportsForHealthScore = [];
+
+  if (selectedPatient !== "all") {
+    // Specific patient: take their 2 most recent reports
+    const sorted = [...userFilteredReports].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+    latestReportsForHealthScore = sorted.slice(0, 2);
+  } else {
+    // All patients: for EACH unique user, extract their 2 most recent reports
+    const patientReportsMap = new Map();
+    for (const rep of reports) {
+      const pid = rep.patient?.id || rep.patient?.name || "unknown";
+      if (!patientReportsMap.has(String(pid))) {
+        patientReportsMap.set(String(pid), []);
+      }
+      patientReportsMap.get(String(pid)).push(rep);
+    }
+
+    patientReportsMap.forEach((patientReports) => {
+      const sorted = [...patientReports].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+      latestReportsForHealthScore.push(...sorted.slice(0, 2));
+    });
+  }
+
+  // All tests (hemoglobin, glucose, cholesterol, etc.) together from the latest reports
+  const latestTests = latestReportsForHealthScore.flatMap((r) => r.tests || []);
+
+  const normalLatest = latestTests.filter(
+    (test) => (test.status || "").toUpperCase() === "NORMAL"
+  ).length;
+
+  const attentionLatest = latestTests.filter(
+    (test) => (test.status || "").toUpperCase() !== "NORMAL"
+  ).length;
+
+  const totalLatestTests = normalLatest + attentionLatest;
+  const normalPercentage = totalLatestTests
+    ? Math.round((normalLatest / totalLatestTests) * 100)
+    : 0;
 
   // Update active patient name label
   const nameEl = $("#dashboardActivePatientName");
@@ -1143,6 +1202,17 @@ function updateDashboard() {
     }
   }
 
+  // Update hero sublabel to indicate calculation basis
+  const basisEl = $("#healthAnalysisBasis");
+  if (basisEl) {
+    if (selectedPatient === "all") {
+      basisEl.textContent = "Latest 2 Reports per Patient";
+    } else {
+      const count = latestReportsForHealthScore.length;
+      basisEl.textContent = `Latest ${count} Report${count === 1 ? "" : "s"}`;
+    }
+  }
+
   // Update avatar in topbar
   const avatarEl = $(".avatar");
   if (avatarEl) {
@@ -1154,30 +1224,18 @@ function updateDashboard() {
     }
   }
 
-  const totalReports = filteredReports.length;
-  const allTests = filteredReports.flatMap((report) => report.tests || []);
-
-  const normal = allTests.filter(
-    (test) => (test.status || "").toUpperCase() === "NORMAL"
-  ).length;
-
-  const attention = allTests.filter(
-    (test) => (test.status || "").toUpperCase() !== "NORMAL"
-  ).length;
-
+  // Stat cards
   const totalReportsEl = $("#totalReports");
   const normalResultsEl = $("#normalResults");
   const attentionResultsEl = $("#attentionResults");
   const testsAnalyzedEl = $("#testsAnalyzed");
 
-  if (totalReportsEl) totalReportsEl.textContent = totalReports;
-  if (normalResultsEl) normalResultsEl.textContent = normal;
-  if (attentionResultsEl) attentionResultsEl.textContent = attention;
-  if (testsAnalyzedEl) testsAnalyzedEl.textContent = allTests.length;
+  if (totalReportsEl) totalReportsEl.textContent = userFilteredReports.length;
+  if (normalResultsEl) normalResultsEl.textContent = normalLatest;
+  if (attentionResultsEl) attentionResultsEl.textContent = attentionLatest;
+  if (testsAnalyzedEl) testsAnalyzedEl.textContent = totalLatestTests;
 
-  const total = normal + attention;
-  const normalPercentage = total ? Math.round((normal / total) * 100) : 0;
-
+  // Percentage and progress bars
   const normalPercentEl = $("#dashboardNormalPercent");
   const normalBarEl = $("#normalBar");
   const attentionBarEl = $("#attentionBar");
@@ -1295,16 +1353,174 @@ function renderTrendChart() {
   empty.style.display = "none";
 
   const testDef = TESTS[normKey] || {
+    name: normKey,
     low: points[0].value * 0.8,
     high: points[0].value * 1.2,
     unit: points[0].unit || "",
   };
 
-  chart.innerHTML = `
+  chart.className = `trend-chart ${currentTrendView === "graph" ? "graph-mode" : "linear-mode"}`;
+
+  if (currentTrendView === "graph") {
+    chart.innerHTML = renderGraphView(points, testDef);
+  } else {
+    chart.innerHTML = renderLinearView(points, testDef);
+  }
+}
+
+function renderGraphView(points, testDef) {
+  const svgWidth = 680;
+  const svgHeight = 310;
+  const marginLeft = 60;
+  const marginRight = 40;
+  const marginTop = 30;
+  const marginBottom = 50;
+  const chartWidth = svgWidth - marginLeft - marginRight;
+  const chartHeight = svgHeight - marginTop - marginBottom;
+
+  const values = points.map((p) => p.value);
+  const dataMax = Math.max(...values, testDef.high);
+  const dataMin = Math.min(...values, testDef.low);
+  const yPadding = Math.max((dataMax - dataMin) * 0.15, 1);
+  const yMax = dataMax + yPadding;
+  const yMin = Math.max(0, dataMin - yPadding);
+  const ySpread = Math.max(yMax - yMin, 0.1);
+
+  const getY = (val) =>
+    marginTop + chartHeight - ((val - yMin) / ySpread) * chartHeight;
+
+  const getX = (index) => {
+    if (points.length === 1) return marginLeft + chartWidth / 2;
+    return marginLeft + (index / (points.length - 1)) * chartWidth;
+  };
+
+  // Normal range zone
+  const normalTop = Math.max(marginTop, getY(testDef.high));
+  const normalBottom = Math.min(marginTop + chartHeight, getY(testDef.low));
+  const normalHeight = Math.max(2, normalBottom - normalTop);
+
+  // Generate 5 grid ticks
+  const tickCount = 5;
+  const ticks = [];
+  for (let i = 0; i < tickCount; i++) {
+    ticks.push(yMin + (i / (tickCount - 1)) * ySpread);
+  }
+
+  const pointCoords = points.map((p, idx) => ({
+    x: getX(idx),
+    y: getY(p.value),
+    point: p,
+  }));
+
+  const polylinePoints = pointCoords.map((c) => `${c.x},${c.y}`).join(" ");
+
+  let areaPath = "";
+  if (points.length > 1) {
+    const first = pointCoords[0];
+    const last = pointCoords[pointCoords.length - 1];
+    const baseline = marginTop + chartHeight;
+    areaPath = `M ${first.x},${baseline} L ${polylinePoints.replace(/ /g, " L ")} L ${last.x},${baseline} Z`;
+  }
+
+  const getStatusColor = (status) => {
+    const s = (status || "").toUpperCase();
+    if (s === "NORMAL") return "#20a66a";
+    if (s === "HIGH") return "#d94141";
+    return "#e08a1e";
+  };
+
+  return `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="trend-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="trendAreaGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#356df3" stop-opacity="0.22"/>
+          <stop offset="100%" stop-color="#356df3" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background normal reference range zone -->
+      <rect x="${marginLeft}" y="${normalTop}" width="${chartWidth}" height="${normalHeight}" fill="rgba(32, 166, 106, 0.12)" rx="4"/>
+      
+      <!-- Gridlines & Y-axis scale labels -->
+      ${ticks
+        .map((t) => {
+          const y = getY(t);
+          return `
+            <line x1="${marginLeft}" y1="${y}" x2="${marginLeft + chartWidth}" y2="${y}" stroke="#edf1f7" stroke-width="1"/>
+            <text x="${marginLeft - 10}" y="${y + 4}" text-anchor="end" font-size="10" fill="#8896ab" font-family="Manrope, sans-serif">${t.toFixed(1)}</text>
+          `;
+        })
+        .join("")}
+
+      <!-- Normal threshold guide lines -->
+      <line x1="${marginLeft}" y1="${normalBottom}" x2="${marginLeft + chartWidth}" y2="${normalBottom}" stroke="#20a66a" stroke-dasharray="4,4" stroke-width="1.2" opacity="0.6"/>
+      <text x="${marginLeft + chartWidth}" y="${normalBottom - 4}" text-anchor="end" font-size="9" fill="#1b8857" font-weight="700">Min: ${testDef.low} ${testDef.unit || ""}</text>
+
+      <line x1="${marginLeft}" y1="${normalTop}" x2="${marginLeft + chartWidth}" y2="${normalTop}" stroke="#20a66a" stroke-dasharray="4,4" stroke-width="1.2" opacity="0.6"/>
+      <text x="${marginLeft + chartWidth}" y="${normalTop + 12}" text-anchor="end" font-size="9" fill="#1b8857" font-weight="700">Max: ${testDef.high} ${testDef.unit || ""}</text>
+
+      <!-- Area fill underneath line -->
+      ${areaPath ? `<path d="${areaPath}" fill="url(#trendAreaGradient)"/>` : ""}
+
+      <!-- Main trend polyline -->
+      ${points.length > 1 ? `<polyline points="${polylinePoints}" fill="none" stroke="#356df3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+
+      <!-- Data point markers and labels -->
+      ${pointCoords
+        .map((c) => {
+          const color = getStatusColor(c.point.status);
+          const valDisplay = `${c.point.value}`;
+          return `
+            <!-- Vertical guide line -->
+            <line x1="${c.x}" y1="${c.y}" x2="${c.x}" y2="${marginTop + chartHeight}" stroke="#dfe5ef" stroke-dasharray="2,2"/>
+            
+            <!-- Value pill -->
+            <rect x="${c.x - 22}" y="${c.y - 28}" width="44" height="20" rx="5" fill="#1e293b"/>
+            <text x="${c.x}" y="${c.y - 14}" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff" font-family="Manrope, sans-serif">${valDisplay}</text>
+            
+            <!-- Point circle marker -->
+            <circle cx="${c.x}" cy="${c.y}" r="6.5" fill="${color}" stroke="#ffffff" stroke-width="2.5">
+              <title>${c.point.patientName}: ${c.point.value} ${c.point.unit} (${c.point.status}) on ${formatDate(c.point.date)}</title>
+            </circle>
+
+            <!-- Date and patient label on X-axis -->
+            <text x="${c.x}" y="${marginTop + chartHeight + 20}" text-anchor="middle" font-size="10" fill="#475569" font-weight="700" font-family="Manrope, sans-serif">${formatDate(c.point.date)}</text>
+            <text x="${c.x}" y="${marginTop + chartHeight + 33}" text-anchor="middle" font-size="8" fill="#94a3b8">${escapeHtml(c.point.patientName)}</text>
+          `;
+        })
+        .join("")}
+    </svg>
+
+    <div class="trend-legend">
+      <div class="legend-item">
+        <span class="legend-box green"></span>
+        <span>Normal Range (${testDef.low} – ${testDef.high} ${testDef.unit || ""})</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-line blue"></span>
+        <span>Measured Trend</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot green"></span>
+        <span>Normal</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot orange"></span>
+        <span>Low</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot red"></span>
+        <span>High</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderLinearView(points, testDef) {
+  return `
     <div class="trend-axis">
       ${points
         .map((point, index) => {
-          // Space points chronologically across the timeline
           const leftPercent =
             points.length === 1 ? 50 : 8 + (index / (points.length - 1)) * 84;
           const statusClass = (point.status || "NORMAL").toLowerCase();
