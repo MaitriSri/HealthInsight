@@ -286,9 +286,10 @@ function navigateTo(sectionId) {
 ========================================================= */
 
 function setupButtons() {
-  $("#startReportButton")?.addEventListener("click", () =>
-    navigateTo("new-report")
-  );
+  $("#startReportButton")?.addEventListener("click", () => {
+    clearReportForm();
+    navigateTo("new-report");
+  });
 
   $("#addTestButton")?.addEventListener("click", addTest);
 
@@ -296,9 +297,10 @@ function setupButtons() {
 
   $("#clearReportButton")?.addEventListener("click", clearReportForm);
 
-  $("#newAnalysisButton")?.addEventListener("click", () =>
-    navigateTo("new-report")
-  );
+  $("#newAnalysisButton")?.addEventListener("click", () => {
+    clearReportForm();
+    navigateTo("new-report");
+  });
 
   $("#saveReportButton")?.addEventListener("click", saveCurrentReport);
 
@@ -306,9 +308,10 @@ function setupButtons() {
     navigateTo("history")
   );
 
-  $("#historyNewButton")?.addEventListener("click", () =>
-    navigateTo("new-report")
-  );
+  $("#historyNewButton")?.addEventListener("click", () => {
+    clearReportForm();
+    navigateTo("new-report");
+  });
 
   $("#trendTest")?.addEventListener("change", renderTrendChart);
 }
@@ -451,6 +454,37 @@ async function analyzeReport() {
   if (!validation.valid) {
     showValidation(validation.message);
     return;
+  }
+
+  // Auto-capture test input if user entered or changed a value without clicking "+ Add Test"
+  const pendingTestKey = $("#testSelect")?.value;
+  const pendingRawValue = $("#testValue")?.value;
+  if (pendingTestKey && pendingRawValue && pendingRawValue.trim() !== "") {
+    const val = parseFloat(pendingRawValue);
+    if (!Number.isNaN(val) && Number.isFinite(val)) {
+      const testDef = TESTS[pendingTestKey] || {
+        name: pendingTestKey,
+        unit: "",
+        low: 0,
+        high: 100,
+      };
+      const existing = currentTests.find((item) => item.key === pendingTestKey);
+      if (existing) {
+        existing.value = val;
+      } else {
+        currentTests.push({
+          key: pendingTestKey,
+          name: testDef.name,
+          value: val,
+          unit: testDef.unit,
+          low: testDef.low,
+          high: testDef.high,
+        });
+      }
+      $("#testSelect").value = "";
+      $("#testValue").value = "";
+      renderSelectedTests();
+    }
   }
 
   if (!currentTests.length) {
@@ -751,6 +785,12 @@ async function saveCurrentReport() {
     renderHistory();
     updateTrendTestOptions();
 
+    // Reset draft state so subsequent reports start fresh
+    currentTests = [];
+    if ($("#testSelect")) $("#testSelect").value = "";
+    if ($("#testValue")) $("#testValue").value = "";
+    renderSelectedTests();
+
     showToast("Report saved successfully in SQLite database.", "success");
   } catch (error) {
     console.error("Save report error:", error);
@@ -941,30 +981,41 @@ function updateTrendTestOptions() {
   const select = $("#trendTest");
   if (!select) return;
 
-  const selected = select.value;
-  const availableTests = [
-    ...new Set(
-      reports.flatMap((report) =>
-        (report.tests || []).map((test) => test.key || test.test_name)
-      )
-    ),
-  ];
+  const previousSelection = select.value;
+  // Deduplicate test keys case-insensitively
+  const testMap = new Map();
+  for (const report of reports) {
+    for (const test of report.tests || []) {
+      const rawKey = (test.key || test.test_name || test.name || "").trim();
+      const normKey = rawKey.toLowerCase();
+      if (normKey && !testMap.has(normKey)) {
+        testMap.set(normKey, {
+          key: normKey,
+          displayName: TESTS[normKey]?.name || test.test_name || test.name || rawKey,
+        });
+      }
+    }
+  }
+
+  const availableTests = Array.from(testMap.values());
 
   select.innerHTML = `
     <option value="">Select a test</option>
     ${availableTests
       .map(
-        (key) => `
-          <option value="${key}">
-            ${TESTS[key]?.name || key}
+        (t) => `
+          <option value="${t.key}">
+            ${t.displayName}
           </option>
         `
       )
       .join("")}
   `;
 
-  if (availableTests.includes(selected)) {
-    select.value = selected;
+  if (previousSelection && testMap.has(previousSelection.toLowerCase())) {
+    select.value = previousSelection.toLowerCase();
+  } else if (availableTests.length > 0) {
+    select.value = availableTests[0].key;
   }
 }
 
@@ -981,14 +1032,20 @@ function renderTrendChart() {
     return;
   }
 
+  const normKey = key.toLowerCase();
   const points = reports
     .flatMap((report) =>
       (report.tests || [])
-        .filter((test) => (test.key || test.test_name) === key)
+        .filter((test) => {
+          const tKey = (test.key || test.test_name || test.name || "").toLowerCase();
+          return tKey === normKey;
+        })
         .map((test) => ({
           date: report.date,
-          value: test.value,
-          status: test.status,
+          patientName: report.patient?.name || "Patient",
+          value: Number(test.value),
+          unit: test.unit || "",
+          status: test.status || "NORMAL",
         }))
     )
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1001,26 +1058,23 @@ function renderTrendChart() {
 
   empty.style.display = "none";
 
-  const test = TESTS[key] || {
+  const testDef = TESTS[normKey] || {
     low: points[0].value * 0.8,
     high: points[0].value * 1.2,
-    unit: "",
+    unit: points[0].unit || "",
   };
-
-  const values = points.map((point) => point.value);
-  const max = Math.max(...values, test.high);
-  const min = Math.min(...values, test.low);
-  const spread = Math.max(max - min, 1);
 
   chart.innerHTML = `
     <div class="trend-axis">
       ${points
-        .map((point) => {
-          const position = ((point.value - min) / spread) * 100;
+        .map((point, index) => {
+          // Space points chronologically across the timeline
+          const leftPercent =
+            points.length === 1 ? 50 : 8 + (index / (points.length - 1)) * 84;
           const statusClass = (point.status || "NORMAL").toLowerCase();
 
           return `
-            <div class="trend-point-wrapper" style="left:${position}%">
+            <div class="trend-point-wrapper" style="left:${leftPercent}%" title="${point.patientName}: ${point.value} ${point.unit} on ${formatDate(point.date)}">
               <div class="trend-point ${statusClass}">
                 ${point.value}
               </div>
@@ -1033,7 +1087,7 @@ function renderTrendChart() {
 
     <div class="trend-reference">
       <span>
-        Reference: ${test.low} – ${test.high} ${test.unit}
+        Reference: ${testDef.low} – ${testDef.high} ${testDef.unit || ""}
       </span>
     </div>
   `;
