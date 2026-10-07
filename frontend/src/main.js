@@ -273,6 +273,33 @@ function updatePatientDropdowns() {
       trendPatient.value = "all";
     }
   }
+
+  // 3. Dashboard Patient Selector
+  const dashboardPatientSelect = $("#dashboardPatientSelect");
+  if (dashboardPatientSelect) {
+    const currentDashVal = dashboardPatientSelect.value || "all";
+    dashboardPatientSelect.innerHTML = `
+      <option value="all">All Patients (Aggregate)</option>
+      ${storedPatients
+        .map(
+          (p) => `
+            <option value="${p.id}">
+              ${escapeHtml(p.name)} (${p.age ? p.age + " yrs, " : ""}${p.gender || "Unspecified"})
+            </option>
+          `
+        )
+        .join("")}
+    `;
+    if (
+      currentDashVal &&
+      (currentDashVal === "all" ||
+        storedPatients.some((p) => String(p.id) === String(currentDashVal)))
+    ) {
+      dashboardPatientSelect.value = currentDashVal;
+    } else {
+      dashboardPatientSelect.value = "all";
+    }
+  }
 }
 
 async function loadReportsFromBackend() {
@@ -369,6 +396,11 @@ function navigateTo(sectionId) {
     behavior: "smooth",
   });
 
+  if (sectionId === "dashboard") {
+    updatePatientDropdowns();
+    updateDashboard();
+  }
+
   if (sectionId === "new-report") {
     updatePatientDropdowns();
   }
@@ -392,6 +424,10 @@ function setupButtons() {
   $("#startReportButton")?.addEventListener("click", () => {
     clearReportForm();
     navigateTo("new-report");
+  });
+
+  $("#dashboardPatientSelect")?.addEventListener("change", () => {
+    updateDashboard();
   });
 
   $("#patientSelect")?.addEventListener("change", onPatientSelectChange);
@@ -1084,8 +1120,42 @@ async function deleteReport(id) {
 ========================================================= */
 
 function updateDashboard() {
-  const totalReports = reports.length;
-  const allTests = reports.flatMap((report) => report.tests || []);
+  const selectedPatient = $("#dashboardPatientSelect")?.value || "all";
+
+  // Filter reports according to selected patient
+  const filteredReports = reports.filter((rep) => {
+    if (selectedPatient === "all") return true;
+    return String(rep.patient?.id) === String(selectedPatient);
+  });
+
+  // Update active patient name label
+  const nameEl = $("#dashboardActivePatientName");
+  if (nameEl) {
+    if (selectedPatient === "all") {
+      nameEl.textContent = "All Patients (Aggregate)";
+    } else {
+      const found = storedPatients.find((p) => String(p.id) === String(selectedPatient));
+      if (found) {
+        nameEl.textContent = `${found.name} (${found.age ? found.age + " yrs, " : ""}${found.gender || "Unspecified"})`;
+      } else {
+        nameEl.textContent = "Selected Patient";
+      }
+    }
+  }
+
+  // Update avatar in topbar
+  const avatarEl = $(".avatar");
+  if (avatarEl) {
+    if (selectedPatient === "all") {
+      avatarEl.textContent = "ALL";
+    } else {
+      const found = storedPatients.find((p) => String(p.id) === String(selectedPatient));
+      avatarEl.textContent = found ? getInitials(found.name) : "PT";
+    }
+  }
+
+  const totalReports = filteredReports.length;
+  const allTests = filteredReports.flatMap((report) => report.tests || []);
 
   const normal = allTests.filter(
     (test) => (test.status || "").toUpperCase() === "NORMAL"
@@ -1115,6 +1185,13 @@ function updateDashboard() {
   if (normalPercentEl) normalPercentEl.textContent = `${normalPercentage}%`;
   if (normalBarEl) normalBarEl.style.width = `${normalPercentage}%`;
   if (attentionBarEl) attentionBarEl.style.width = `${100 - normalPercentage}%`;
+
+  // Dynamically update the score ring conic gradient to match the normal percentage
+  const ringEl = $(".score-ring");
+  if (ringEl) {
+    const deg = Math.round((normalPercentage / 100) * 360);
+    ringEl.style.background = `radial-gradient(circle at center, white 55%, transparent 56%), conic-gradient(var(--blue) 0deg, #8c7cf0 ${deg}deg, #e8edf6 ${deg}deg)`;
+  }
 }
 
 /* =========================================================

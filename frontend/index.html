@@ -149,6 +149,24 @@
         id="dashboard"
       >
 
+        <!-- DASHBOARD PATIENT SELECTION BAR -->
+        <div class="dashboard-filter-bar">
+          <div class="filter-bar-left">
+            <div class="filter-bar-icon">👤</div>
+            <div>
+              <span class="filter-bar-label">Dashboard View</span>
+              <strong id="dashboardActivePatientName">All Patients (Aggregate)</strong>
+            </div>
+          </div>
+
+          <div class="filter-bar-right">
+            <label for="dashboardPatientSelect">Select Patient:</label>
+            <select id="dashboardPatientSelect" class="patient-select-control">
+              <option value="all">All Patients (Aggregate)</option>
+            </select>
+          </div>
+        </div>
+
         <div class="hero">
 
           <div>
