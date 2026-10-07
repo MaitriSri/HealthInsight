@@ -1,26 +1,53 @@
 # HealthInsight
 
-## Medical Test Interpretation & Health Report Management System
+## Medical Test Interpretation & Family Health Management System
 
-HealthInsight is a healthcare web application designed to help users understand and manage their medical test reports in a simple and organized way. The system interprets laboratory test values by comparing them with appropriate reference ranges and classifies the results as **Normal, High, or Low**.
+HealthInsight is a healthcare web application that helps users keep track of their family's health information in one place.
 
-The project also provides a platform for managing **laboratory reports, X-ray reports, and MRI reports**, along with secure storage and authenticated access. It is designed to provide simple explanations of test results without replacing professional medical advice.
+Instead of managing the health records of only one person, the application allows multiple family members to be added and managed separately. Users can view the health information of individual family members as well as get an overall view of their family's health.
+
+The application interprets laboratory test results by comparing values with their reference ranges and classifying them as **Normal, High, or Low**. It also provides health scores, graphs and visualizations to make changes in health data easier to understand.
+
+HealthInsight is meant to help users organize and understand their health information. It does not replace a doctor or provide a medical diagnosis.
+
+---
 
 ## Features
 
-- Patient and report data management
+- Family member management
+- Individual health profiles for each family member
 - Laboratory test value interpretation
 - Classification of results as **Normal, High, or Low**
-- Simple explanations of laboratory results
-- Upload and management of X-ray and MRI reports
-- Secure storage of medical records
-- User authentication with **Username, Password, and MFA/OTP**
-- Dashboard for viewing interpreted results
-- Historical record management
-- Health trend analysis
-- Comparison of test values over time
-- Visualization using charts and graphs
-- Correlation analysis between health parameters
+- Simple explanations of test results
+- Individual health percentage/score
+- Overall family health percentage/score
+- Health dashboard
+- Health history and previous records
+- Health trends over time
+- Comparison of test values
+- Graphs and charts for health data
+- Correlation between different health parameters
+- X-ray and MRI report management
+- Secure storage of health records
+- User authentication and MFA/OTP
+- Separate health information for different family members
+
+---
+
+## How It Works
+
+A user can add their family members and maintain their health records separately.
+
+For each family member, the application can store medical test information and interpret laboratory values using the relevant reference ranges.
+
+The dashboard provides both:
+
+- **Individual view** – health information and score of a particular family member
+- **Family view** – an overall health percentage/score based on the family's available health data
+
+Graphs and charts are also used to make health trends and changes easier to understand.
+
+---
 
 ## Example
 
@@ -30,85 +57,143 @@ For a Hemoglobin test:
 |---|---:|---:|---|
 | Hemoglobin | 10 g/dL | 12–16 g/dL | Low |
 
-The system compares the entered value with the reference range and provides a simple explanation that the value is below the given range.
+The system compares the entered value with the reference range and identifies the result as **Low**. It then provides a simple explanation of the result.
+
+The interpreted result becomes part of the person's health record and can also be used for the health dashboard and visualizations.
+
+---
 
 ## Technologies Used
 
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** Python, Flask
 - **Database:** SQLite
-- **Visualization:** Matplotlib
-- **Report Generation:** ReportLab
+- **Visualization:** Charts and graphs
+- **Development:** Git and GitHub
+
+---
 
 ## System Architecture
 
-The application follows this architecture:
+The application follows this basic flow:
 
-**User → HTML/CSS/JavaScript → Flask Backend → Python Interpretation Engine → SQLite Database → Dashboard**
+**User → Frontend → Flask Backend → Interpretation Engine → SQLite Database → Dashboard & Visualizations**
+
+The frontend collects information from the user and communicates with the Flask backend.
+
+The backend processes the request, uses the interpretation logic where required, stores or retrieves information from SQLite, and sends the result back to the frontend.
+
+---
 
 ## Main Modules
 
-### 1. Data Input
-Allows patient details and laboratory test values to be entered into the system.
+### 1. Family Member Management
 
-### 2. Data Processing
-Validates and organizes the entered medical data.
+Allows users to add and manage multiple family members.
 
-### 3. Interpretation
-Compares laboratory test values with their reference ranges and classifies them as **Normal, High, or Low**.
+Each family member has their own health information and records so that the data can be viewed separately.
 
-### 4. Explanation
-Provides simple and understandable explanations of the interpreted results.
+### 2. Data Input
 
-### 5. Visualization
-Displays medical data using charts and graphs to help users understand their results and changes over time.
+Allows health and laboratory test information to be entered for individual family members.
 
-### 6. Data Storage
-Stores patient information, test records, and report details securely for future reference.
+### 3. Data Processing
 
-### 7. Security and MFA
-Provides authenticated access using username, password, and multi-factor authentication.
+Validates and processes the information entered by the user before it is stored or interpreted.
 
-### 8. X-Ray and MRI Scan Management
-Allows users to upload, select, validate, store, and retrieve X-ray and MRI report information linked to patient records.
+### 4. Interpretation
 
-### 9. Correlation and Health Trend Analysis
-Uses historical test values to identify trends, changes, and relationships between different health parameters.
+Compares laboratory test values with their reference ranges and classifies them as:
+
+- Normal
+- High
+- Low
+
+### 5. Health Score
+
+The application provides a health percentage/score for individual family members based on their available health data.
+
+An overall family health percentage/score is also displayed to give users a quick view of the family's health status.
+
+### 6. Health Dashboard
+
+The dashboard brings the important health information together in one place.
+
+Users can switch between individual family members and the overall family view.
+
+### 7. Visualization
+
+Health information is presented using graphs and charts.
+
+These visualizations help users understand:
+
+- Changes in test values
+- Health trends over time
+- Comparisons between values
+- Relationships between different health parameters
+
+### 8. Data Storage
+
+Health records, family member information and test data are stored in the SQLite database for future use.
+
+### 9. X-Ray and MRI Management
+
+The application supports the management of X-ray and MRI report information linked to family members.
+
+### 10. Security and Authentication
+
+The application provides authenticated access to protect health information.
+
+---
 
 ## Project Objectives
 
+- To provide a single platform for managing family health information.
+- To maintain separate health records for different family members.
 - To interpret laboratory test values using appropriate reference ranges.
-- To classify test results as Normal, High, or Low.
-- To provide simple explanations without giving a medical diagnosis.
-- To organize laboratory, X-ray, and MRI reports.
-- To provide secure access to medical information.
+- To classify test results as Normal, High or Low.
+- To provide simple explanations of test results.
+- To provide individual health scores.
+- To provide an overall family health score.
+- To display health trends using graphs and visualizations.
+- To organize laboratory, X-ray and MRI information.
 - To securely store health records for future reference.
-- To help users understand changes and trends in their test results.
+- To help users understand their health information without replacing professional medical advice.
+
+---
 
 ## Project Status
 
 ### Implemented
 
-- Project requirements and system design
-- Module identification and functional planning
-- Database structure planning
-- Laboratory interpretation logic design
-- Frontend and backend architecture
-
-### In Progress
-
-- Web application development
-- SQLite integration
-- Laboratory interpretation module
-- X-ray and MRI management
-- Multi-factor authentication
-- Correlation and health trend analysis
+- Frontend development
+- Flask backend
+- SQLite database
+- Family member management
+- Individual health records
+- Laboratory test interpretation
+- Normal/High/Low classification
+- Individual health score
+- Overall family health score
+- Health dashboard
+- Health history
+- Graphs and visualizations
+- Health trend analysis
+- X-ray and MRI report management
+- Backend and database integration
+- System testing
+- GitHub integration
 
 ### Future Enhancements
 
-- OCR-based medical report extraction
+- OCR-based extraction of values directly from medical reports
+- Support for a larger number of laboratory tests
+- More advanced health analytics
 - Advanced medical image analysis
-- Expanded laboratory test coverage
+- Additional visualization and reporting features
+- Mobile application
+
+---
 
 ## Team Members
 
@@ -124,20 +209,27 @@ Uses historical test values to identify trends, changes, and relationships betwe
 
 **Dr. Trapti Sharma**
 
+---
+
 ## Disclaimer
 
-HealthInsight is intended to help users understand and organize medical test information. It does **not provide medical diagnosis or replace professional medical advice**. Users should consult qualified healthcare professionals for medical decisions.
+HealthInsight is designed to help users organize and understand their health information. The results and health scores shown by the application are for informational purposes only.
 
-## Development Plan
+The application does **not provide a medical diagnosis and does not replace professional medical advice**. Users should consult a qualified healthcare professional for medical decisions.
 
-The project development includes:
+---
+
+## Development
+
+The project was developed by dividing the work into different modules:
 
 1. Frontend development
 2. Flask backend development
-3. SQLite database integration
+3. SQLite database
 4. Laboratory test interpretation
-5. X-ray and MRI report management
-6. Multi-factor authentication
-7. Correlation and health trend analysis
-8. System integration and testing
-9. Final prototype development
+5. Family member management
+6. Health scoring
+7. Health dashboard and visualizations
+8. X-ray and MRI management
+9. Integration of all modules
+10. Testing and GitHub management
